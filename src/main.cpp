@@ -23,10 +23,6 @@ constexpr float CANVAS_W = 800.0f;
 constexpr float CANVAS_H = 600.0f;
 
 // ---- game state ----
-//
-// We can't use `new` or std::vector without a libc++, so we keep state
-// as file-scope globals. For Pong this is plenty — there's a fixed,
-// known set of entities.
 struct State {
     float ball_x  = CANVAS_W / 2.0f;
     float ball_y  = CANVAS_H / 2.0f;
