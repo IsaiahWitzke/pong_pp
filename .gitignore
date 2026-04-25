@@ -1,0 +1,4 @@
+web/pong.wasm
+*.o
+*.dSYM/
+.DS_Store
