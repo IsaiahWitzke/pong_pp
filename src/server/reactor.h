@@ -6,7 +6,7 @@
 // i love js so much that i remade the event loop in c++
 // note: doesn't own the fds in handlers_... cleanup is for the API users
 class Reactor {
-  public:
+public:
     using Handler = std::function<void(int revents)>;
 
     void OnReadable(int fd, Handler cb);
@@ -14,7 +14,7 @@ class Reactor {
     void Stop();
     void Run();
 
-  private:
+private:
     std::unordered_map<int, Handler> handlers_;
     bool running_ = false;
 };

@@ -1,5 +1,5 @@
 #include "reactor.h"
-#include "websocket_connection.h"
+#include "ws/connection.h"
 
 #include <arpa/inet.h>
 #include <memory>
@@ -70,10 +70,10 @@ int main() {
                     ntohs(peer.sin_port));
 
         // Per-client handler. The handshake is now handled inside
-        // WebsocketConnection::Read; the lambda just relays Read's verdict.
-        auto conn = std::make_shared<WebsocketConnection>(cfd);
+        // ws::Connection::Read; the lambda just relays Read's verdict.
+        auto conn = std::make_shared<ws::Connection>(cfd);
         reactor.OnReadable(cfd, [&reactor, conn](int /* revents */) {
-            if (conn->Read() == WebsocketConnection::ReadResult::Err) {
+            if (conn->Read() == ws::Connection::ReadResult::Err) {
                 reactor.Remove(conn->GetFD());
             }
         });
