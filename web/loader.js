@@ -7,6 +7,13 @@ const ctx    = canvas.getContext('2d');
 let instance;
 let ws;
 
+// Pick the signaling server URL based on where the page is loaded from:
+//   - localhost / 127.0.0.1  -> local dev server (plain ws://)
+//   - anywhere else (Pages)  -> deployed Cloud Run service (wss://)
+const SIGNAL_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'ws://localhost:9000'
+    : 'wss://pong-signal-3tez3w6v5q-ue.a.run.app';
+
 // Read len bytes from WASM linear memory at ptr, decode as UTF-8.
 function readMem(ptr, len) {
     return new TextDecoder().decode(
@@ -38,7 +45,7 @@ const imports = {
 
         // ── WebSocket bridge ─────────────────────────────────────────────
         ws_connect: () => {
-            ws = new WebSocket('ws://localhost:9000');
+            ws = new WebSocket(SIGNAL_URL);
             ws.addEventListener('open',    () => instance.exports.on_ws_open());
             ws.addEventListener('close',   () => instance.exports.on_ws_close());
             ws.addEventListener('error',   () => instance.exports.on_ws_error());
