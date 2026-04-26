@@ -88,3 +88,5 @@ These appear on `instance.exports` after `WebAssembly.instantiateStreaming`.
   game-state bytes peer-to-peer
 - Build a tiny native signaling server to broker the WebRTC handshake
   between the two clients
+- Deploy: static client on GitHub Pages, signaling server on a BuyVM
+  Slice 1024 ($3.50/mo) with Caddy in front for `wss://` TLS
