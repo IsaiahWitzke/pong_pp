@@ -81,15 +81,8 @@ int main() {
             [&hub, fd = cfd](std::string_view msg) { hub.OnMessage(fd, msg); });
         hub.OnConnect(std::move(conn));
 
-        reactor.OnReadable(cfd, [&hub, fd = cfd](int /* revents */) {
-            auto c = hub.Get(fd);
-            if (!c)
-                return;
-            if (c->Read() == ws::Connection::ReadResult::Err) {
-                hub.OnDisconnect(fd);
-                // ~Connection eventually fires and calls reactor.Remove(fd).
-            }
-        });
+        reactor.OnReadable(
+            cfd, [&hub, fd = cfd](int /* revents */) { hub.OnReadable(fd); });
     });
 
     reactor.Run();

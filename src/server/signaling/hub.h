@@ -4,7 +4,6 @@
 #include "ws/connection.h"
 
 #include <memory>
-#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -21,6 +20,10 @@ public:
     // A WebSocket has just opened. Hub takes ownership; lifetime is now
     // tied to its presence in connections_ (plus any rooms_ membership).
     void OnConnect(std::shared_ptr<ws::Connection> conn);
+
+    // The reactor reports that this fd has bytes ready. Reads from the
+    // connection and runs the protocol; tears down on error.
+    void OnReadable(int fd);
 
     // Look up a connection by fd. Returns a copy of the shared_ptr (so
     // the caller can safely use it for the duration of one operation),

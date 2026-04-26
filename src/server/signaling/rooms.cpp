@@ -6,21 +6,22 @@ namespace signaling {
 
 Rooms::Rooms(ChangedFn on_changed) : on_changed_(std::move(on_changed)) {}
 
-bool Rooms::NewRoom(std::string code, std::shared_ptr<ws::Connection> host) {
-    auto [it, ok] = rooms_.emplace(
-        std::move(code), Room{.host = std::move(host), .guest = nullptr});
-    if (!ok) return false;
+Rooms::Code Rooms::NewRoom(std::shared_ptr<ws::Connection> host) {
+    // Codes are monotonically increasing integers. Never recycled, so
+    // the uniqueness invariant is structural: no collision possible.
+    Code code = next_code_++;
+    rooms_.emplace(code, Room{.host = std::move(host), .guest = nullptr});
     Notify();
-    return true;
+    return code;
 }
 
-bool Rooms::DeleteRoom(const std::string& code) {
+bool Rooms::DeleteRoom(Code code) {
     if (rooms_.erase(code) == 0) return false;
     Notify();
     return true;
 }
 
-bool Rooms::Join(const std::string& code, std::shared_ptr<ws::Connection> guest) {
+bool Rooms::Join(Code code, std::shared_ptr<ws::Connection> guest) {
     auto it = rooms_.find(code);
     if (it == rooms_.end() || it->second.guest != nullptr) return false;
     it->second.guest = std::move(guest);
@@ -29,8 +30,8 @@ bool Rooms::Join(const std::string& code, std::shared_ptr<ws::Connection> guest)
     return true;
 }
 
-std::vector<std::string> Rooms::JoinableCodes() const {
-    std::vector<std::string> out;
+std::vector<Rooms::Code> Rooms::JoinableCodes() const {
+    std::vector<Code> out;
     out.reserve(rooms_.size());
     for (const auto& [code, room] : rooms_) {
         if (!room.guest) out.push_back(code);
@@ -46,7 +47,7 @@ std::shared_ptr<ws::Connection> Rooms::Peer(int fd) const {
     return nullptr;
 }
 
-std::optional<std::string> Rooms::RoomFor(int fd) const {
+std::optional<Rooms::Code> Rooms::RoomFor(int fd) const {
     for (const auto& [code, room] : rooms_) {
         if ((room.host && room.host->GetFD() == fd) ||
             (room.guest && room.guest->GetFD() == fd)) {
