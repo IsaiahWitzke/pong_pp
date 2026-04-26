@@ -1,4 +1,5 @@
 web/pong.wasm
+bin/
 *.o
 *.dSYM/
 .DS_Store

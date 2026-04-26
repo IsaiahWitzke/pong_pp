@@ -1,32 +1,16 @@
-SRC := src/main.cpp
-OUT := web/pong.wasm
+# Top-level Makefile. Per-subproject build rules live in build.mk
+# fragments next to the source they describe; this file just stitches
+# them together with shared phony targets.
 
-# --target=wasm32        : output WebAssembly
-# -nostdlib              : no libc / libc++ (we are freestanding)
-# -fno-exceptions/-rtti  : drop C++ runtime features that need stdlib
-# -O2                    : release optimization
-# --no-entry             : there is no main(); the module is library-style
-# --export-dynamic       : honor our __attribute__((export_name(...)))
-# --allow-undefined      : let JS provide imports at instantiation time
-CXXFLAGS := --target=wasm32 \
-            -nostdlib \
-            -fno-exceptions \
-            -fno-rtti \
-            -O2 \
-            -Wl,--no-entry \
-            -Wl,--export-dynamic \
-            -Wl,--allow-undefined
+.PHONY: all clean serve client signal
 
-.PHONY: all clean serve
+all: client signal
 
-all: $(OUT)
+include src/client/build.mk
+include src/signal/build.mk
 
-$(OUT): $(SRC)
-	@mkdir -p web
-	clang++ $(CXXFLAGS) -o $@ $<
-
-serve: all
+serve: client
 	cd web && python3 -m http.server 8080
 
 clean:
-	rm -f $(OUT)
+	rm -f $(CLIENT_OUT) $(SIGNAL_OUT)
