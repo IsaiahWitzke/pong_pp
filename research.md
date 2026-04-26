@@ -234,3 +234,82 @@ If that simpler deploy story matters more to you than the cleaner separation, fo
 3. **Phase 3 (optional, if you ever want):** add a static-file handler to the signaling server so it can serve `web/` itself, for single-binary deployments. Easy to bolt on later if you decide you want it; near-impossible to remove cleanly once it's load-bearing.
 
 This way the signaling server stays a focused little networking experiment, not a half-finished web framework.
+
+
+# "what's up with src/signal/main.cpp?"
+
+This is the classic BSD-sockets "set up a TCP listener" sequence — the same five steps every Unix server has been doing since the early '80s. Walking through it line by line:
+
+## `int fd = socket(AF_INET, SOCK_STREAM, 0);`
+
+Asks the kernel for a brand-new socket and returns a file descriptor (small integer) you can use to refer to it.
+
+- **`AF_INET`** = address family **Internet** = IPv4. (`AF_INET6` would be IPv6.)
+- **`SOCK_STREAM`** = a reliable, ordered, byte-stream socket — i.e. TCP. (`SOCK_DGRAM` would be UDP.)
+- **`0`** = "let the kernel pick the default protocol for that combo." For `AF_INET` + `SOCK_STREAM`, the default is TCP.
+
+Returns `-1` on failure. **`perror("socket")`** prints the system's error message ("socket: Too many open files", etc.) to stderr; **`exit(1)`** bails out.
+
+## `setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes);`
+
+Tweaks an option on the socket. **`SO_REUSEADDR`** says: *"if this address is in `TIME_WAIT`, let me bind to it anyway."*
+
+Without this flag, the very common workflow of "kill server, restart it on the same port" fails for ~30–60 seconds with `bind: Address already in use`. That's because TCP keeps the address reserved after a connection closes, in case stragglers are still in flight. `SO_REUSEADDR` says "I know, don't care, give it to me." Mandatory for any server you'll restart frequently.
+
+`setsockopt` is generic across all socket options, hence the awkward `(&yes, sizeof yes)` — it takes a `void*` + length so the same function can pass any kind of option payload (an `int`, a `struct linger`, etc.).
+
+## `sockaddr_in addr{};`
+
+The struct that describes "where to bind" — IP address + port. The `{}` zero-initializes it, which is important because we only fill in three of its fields and want the rest to be zero (especially `sin_zero`, an 8-byte padding field that's required to be zero).
+
+## Filling in the address
+
+```cpp
+addr.sin_family = AF_INET;                 // "this is an IPv4 address"
+addr.sin_port = htons(port);               // port number, big-endian
+addr.sin_addr.s_addr = htonl(INADDR_ANY);  // bind on all interfaces
+```
+- **`sin_family = AF_INET`** — has to match the socket's family. The kernel checks.
+- **`sin_port = htons(port)`** — port in network byte order, as covered.
+- **`sin_addr.s_addr = htonl(INADDR_ANY)`** — `INADDR_ANY` is the constant `0.0.0.0`, which means "accept connections on every network interface this machine has" — `127.0.0.1` (localhost), the LAN IP, the public IP, etc. The alternative `INADDR_LOOPBACK` (`127.0.0.1`) would only accept local connections. For a server you want `ANY`. `htonl` is technically a no-op for the value `0`, but it's the convention to call it anyway so the line is correct for any future address.
+
+## `bind(fd, (sockaddr*)&addr, sizeof addr)`
+
+Tells the kernel: "associate this socket with this IP+port." After `bind`, the socket "owns" `0.0.0.0:port` until it closes.
+
+The cast `(sockaddr*)&addr` exists because `bind` takes the generic `sockaddr*`, and the kernel reads the family field to figure out which concrete struct (`sockaddr_in` for IPv4, `sockaddr_in6` for IPv6, `sockaddr_un` for Unix sockets) was actually passed. C's way of doing polymorphism in 1983.
+
+Returns -1 on failure. The most common failures are `EADDRINUSE` (port taken) and `EACCES` (trying to bind to a port < 1024 without root).
+
+## `listen(fd, 16)`
+
+Marks the socket as a **passive listener**: it won't initiate connections, only accept incoming ones. Required before you can call `accept()` on it.
+
+The `16` is the **backlog** — how many half-completed handshakes the kernel will queue up while you're busy and haven't called `accept()` yet. If 17 clients try to connect simultaneously and you haven't accepted any, the 17th gets a connection-refused. For a hobby Pong signaling server with 2 expected concurrent connections, 16 is wildly generous; the number doesn't really matter.
+
+## `return fd;`
+
+Hand the now-listening socket back to the caller. From here, you call `accept(fd)` in a loop to pull off new client connections.
+
+## The big picture
+
+The full TCP-server lifecycle is:
+
+```
+                   ┌──────────┐
+        socket() ─►│  fd      │  newly created, unconfigured
+                   └────┬─────┘
+                        │  setsockopt (optional tweaks)
+                        │  bind        (claim IP:port)
+                        ▼
+                   ┌──────────┐
+        listen() ─►│ LISTENING│  ready to accept connections
+                   └────┬─────┘
+                        │  accept() returns a NEW fd per client
+                        ▼
+                   ┌──────────┐  ┌──────────┐  ┌──────────┐
+                   │ client A │  │ client B │  │ client C │ ...
+                   └──────────┘  └──────────┘  └──────────┘
+                       read/write on these to talk to each client
+```
+`make_listener` does steps 1–3. The `poll()` loop in `main()` does step 4 (accept) and step 5 (read/write). The listener fd stays alive forever; per-client fds come and go.
