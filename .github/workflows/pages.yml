@@ -1,0 +1,53 @@
+name: Deploy to GitHub Pages
+
+# Build the wasm client and publish web/ to GitHub Pages on every push to main.
+# Requires: repo Settings -> Pages -> Source set to "GitHub Actions".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Permissions required by actions/deploy-pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent Pages deploy. Don't cancel an in-progress deploy
+# (the deploy step is non-idempotent), but newer commits supersede queued ones.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Ubuntu's clang already targets wasm32; lld provides wasm-ld which the
+      # build.mk's -Wl,... flags need.
+      - name: Install clang + lld
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang lld
+
+      - name: Build wasm client
+        run: make client
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
