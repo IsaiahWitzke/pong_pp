@@ -32,7 +32,32 @@ function writeMsg(str) {
 
 const imports = {
     env: {
-        // ── Canvas ──────────────────────────────────────────────────────
+        // ── libc-ish builtins clang emits even with -nostdlib ──────────────────────────────────────────
+        // (struct copies, array init, etc. lower to memcpy/memset/memmove).
+        memcpy: (dst, src, n) => {
+            new Uint8Array(instance.exports.memory.buffer)
+                .copyWithin(dst, src, src + n);
+            return dst;
+        },
+        memmove: (dst, src, n) => {
+            new Uint8Array(instance.exports.memory.buffer)
+                .copyWithin(dst, src, src + n);
+            return dst;
+        },
+        memset: (dst, val, n) => {
+            new Uint8Array(instance.exports.memory.buffer, dst, n).fill(val);
+            return dst;
+        },
+        memcmp: (a, b, n) => {
+            const heap = new Uint8Array(instance.exports.memory.buffer);
+            for (let i = 0; i < n; i++) {
+                const d = heap[a + i] - heap[b + i];
+                if (d !== 0) return d;
+            }
+            return 0;
+        },
+
+        // ── Canvas ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
         clear_canvas: () => {
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
