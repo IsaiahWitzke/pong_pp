@@ -14,15 +14,191 @@
             font-family: ui-monospace, monospace;
             color: #ddd;
         }
+
+        .screen { display: none; }
+        .screen.active { display: flex; }
+
+        /* ── Menu ────────────────────────────────── */
+        #screen-menu {
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+        #screen-menu h1 {
+            margin: 0 0 8px;
+            font-size: 2rem;
+            letter-spacing: 0.15em;
+            color: #fff;
+        }
+        #room-list {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            min-height: 1.2em;
+        }
+        #room-list .empty {
+            font-size: 0.8rem;
+            color: #666;
+            letter-spacing: 0.05em;
+        }
+        #join-label {
+            font-size: 0.75rem;
+            color: #555;
+            letter-spacing: 0.08em;
+        }
+        .btn {
+            padding: 10px 28px;
+            background: #000;
+            border: 1px solid #555;
+            color: #ddd;
+            font-family: inherit;
+            font-size: 1rem;
+            letter-spacing: 0.08em;
+            cursor: pointer;
+        }
+        .btn:hover { border-color: #aaa; color: #fff; }
+        .btn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+        #join-row { display: flex; gap: 8px; }
+        #join-input {
+            width: 7ch;
+            padding: 10px 12px;
+            background: #000;
+            border: 1px solid #555;
+            color: #ddd;
+            font-family: inherit;
+            font-size: 1rem;
+            letter-spacing: 0.15em;
+        }
+        #join-input::placeholder { color: #444; letter-spacing: 0.05em; }
+
+        /* ── Waiting ─────────────────────────────── */
+        #screen-waiting {
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+        #waiting-label { color: #888; font-size: 0.85rem; letter-spacing: 0.1em; }
+        #waiting-code {
+            font-size: 3rem;
+            letter-spacing: 0.5em;
+            color: #fff;
+            padding-left: 0.5em;
+        }
+        #waiting-hint { font-size: 0.75rem; color: #555; }
+
+        /* ── Game ────────────────────────────────── */
+        #screen-game {
+            position: relative;
+            width: 800px;
+            height: 600px;
+        }
         #canvas {
+            display: block;
             background: #000;
             border: 1px solid #444;
             image-rendering: pixelated;
         }
+        #chat {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            width: 260px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            pointer-events: none;
+        }
+        #chat-log {
+            height: 120px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #333;
+            padding: 4px 6px;
+            font-size: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        #chat-log .msg-me   { color: #7bf; }
+        #chat-log .msg-peer { color: #fb7; }
+        #chat-input-row {
+            pointer-events: auto;
+            display: flex;
+        }
+        #chat-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #444;
+            border-right: none;
+            color: #ddd;
+            font-family: inherit;
+            font-size: 0.75rem;
+            padding: 4px 6px;
+        }
+        #chat-input:focus { outline: none; border-color: #666; }
+        #chat-send {
+            padding: 4px 8px;
+            background: #000;
+            border: 1px solid #444;
+            color: #aaa;
+            font-family: inherit;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+        #chat-send:hover { color: #fff; }
+
+        /* ── Error banner ────────────────────────── */
+        #error-banner {
+            display: none;
+            position: fixed;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #500;
+            border: 1px solid #a00;
+            color: #fcc;
+            padding: 6px 16px;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+            z-index: 100;
+            white-space: nowrap;
+        }
+        #error-banner.visible { display: block; }
     </style>
 </head>
 <body>
-    <canvas id="canvas" width="800" height="600"></canvas>
+    <div id="error-banner"></div>
+
+    <div id="screen-menu" class="screen active">
+        <h1>PONG_PP</h1>
+        <div id="room-list"><span class="empty">connecting…</span></div>
+        <button id="btn-host" class="btn" disabled>HOST ROOM</button>
+        <div id="join-label">or enter code</div>
+        <div id="join-row">
+            <input id="join-input" maxlength="10" placeholder="1234" spellcheck="false" autocomplete="off" inputmode="numeric">
+            <button id="btn-join" class="btn" disabled>JOIN</button>
+        </div>
+    </div>
+
+    <div id="screen-waiting" class="screen">
+        <div id="waiting-label">WAITING FOR OPPONENT</div>
+        <div id="waiting-code"></div>
+        <div id="waiting-hint">share this code with a friend</div>
+        <button id="btn-cancel" class="btn">CANCEL</button>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <canvas id="canvas" width="800" height="600"></canvas>
+        <div id="chat">
+            <div id="chat-log"></div>
+            <div id="chat-input-row">
+                <input id="chat-input" maxlength="200" placeholder="type a message…" autocomplete="off">
+                <button id="chat-send" class="btn">send</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="loader.js"></script>
 </body>
 </html>

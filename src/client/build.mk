@@ -9,12 +9,14 @@ CLIENT_OUT := web/pong.wasm
 # --export-dynamic       : honor our __attribute__((export_name(...)))
 # --allow-undefined      : let JS provide imports at instantiation time
 CLIENT_CXXFLAGS := --target=wasm32 \
+                   -std=c++17 \
                    -nostdlib \
                    -fno-exceptions \
                    -fno-rtti \
                    -O2 \
                    -Wl,--no-entry \
                    -Wl,--export-dynamic \
+                   -Wl,--export=memory \
                    -Wl,--allow-undefined
 
 client: $(CLIENT_OUT)
