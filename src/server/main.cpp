@@ -1,4 +1,5 @@
 #include "reactor.h"
+#include "signaling/hub.h"
 #include "ws/connection.h"
 
 #include <arpa/inet.h>
@@ -38,7 +39,7 @@ static int make_listener(uint16_t port) {
         std::exit(1);
     }
 
-    std::printf("signal: listening on :%u\n", port);
+    std::printf("server: listening on :%u\n", port);
     return fd;
 }
 
@@ -52,6 +53,7 @@ int main() {
     int lfd = make_listener(port);
 
     Reactor reactor;
+    signaling::Hub hub;
 
     // Listener: on POLLIN, accept and register a per-client handler.
     reactor.OnReadable(lfd, [&](int revents) {
@@ -66,15 +68,26 @@ int main() {
 
         char ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &peer.sin_addr, ip, sizeof ip);
-        std::printf("signal: client %d connected from %s:%u\n", cfd, ip,
+        std::printf("server: client %d connected from %s:%u\n", cfd, ip,
                     ntohs(peer.sin_port));
 
-        // Per-client handler. The handshake is now handled inside
-        // ws::Connection::Read; the lambda just relays Read's verdict.
-        auto conn = std::make_shared<ws::Connection>(cfd);
-        reactor.OnReadable(cfd, [&reactor, conn](int /* revents */) {
-            if (conn->Read() == ws::Connection::ReadResult::Err) {
-                reactor.Remove(conn->GetFD());
+        // Per-client handler. ws::Connection handles the WS protocol;
+        // application messages go up to the hub. The connection cleans
+        // up its own reactor registration via the on_destruct callback,
+        // so the lambda below only deals with hub-level lifecycle.
+        auto conn = std::make_shared<ws::Connection>(
+            cfd,
+            [&reactor, fd = cfd] { reactor.Remove(fd); },
+            [&hub, fd = cfd](std::string_view msg) { hub.OnMessage(fd, msg); });
+        hub.OnConnect(std::move(conn));
+
+        reactor.OnReadable(cfd, [&hub, fd = cfd](int /* revents */) {
+            auto c = hub.Get(fd);
+            if (!c)
+                return;
+            if (c->Read() == ws::Connection::ReadResult::Err) {
+                hub.OnDisconnect(fd);
+                // ~Connection eventually fires and calls reactor.Remove(fd).
             }
         });
     });

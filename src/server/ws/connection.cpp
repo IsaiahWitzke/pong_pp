@@ -10,9 +10,13 @@
 
 namespace ws {
 
-Connection::Connection(int fd) : fd_(fd) {}
+Connection::Connection(int fd, OnDestructFn on_destruct, OnMessageFn on_message)
+    : fd_(fd), on_destruct_(std::move(on_destruct)),
+      on_message_(std::move(on_message)) {}
 
 Connection::~Connection() {
+    if (on_destruct_)
+        on_destruct_();
     if (fd_ >= 0)
         close(fd_);
 }
@@ -109,11 +113,13 @@ Connection::FramesPhase Connection::HandleFrames() {
         switch (f.opcode) {
         case Op::Text:
         case Op::Binary:
-            // Placeholder: log + echo. Step 4 will replace with message
-            // dispatch (room ops, relay envelopes).
-            std::printf("server: client %d frame: %.*s\n", fd_,
-                        int(f.payload.size()), f.payload.data());
-            Write(EncodeFrame(f.opcode, f.payload));
+            if (on_message_) {
+                on_message_(f.payload);
+            } else {
+                std::printf(
+                    "server: client %d frame discarded (no handler): %.*s\n",
+                    fd_, int(f.payload.size()), f.payload.data());
+            }
             break;
         case Op::Ping:
             // Echo payload back as Pong, per RFC 6455 §5.5.2.
