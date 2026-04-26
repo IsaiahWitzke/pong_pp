@@ -44,6 +44,12 @@ static int make_listener(uint16_t port) {
 }
 
 int main() {
+    // In a container, stdout is fully buffered (not line-buffered like a TTY),
+    // so short printfs sit in the FILE buffer indefinitely and never reach
+    // Cloud Run logs. Switch to line buffering so each \n flushes.
+    setvbuf(stdout, nullptr, _IOLBF, 0);
+    setvbuf(stderr, nullptr, _IOLBF, 0);
+
     // Don't die when a peer disconnects mid-write; we'll see EPIPE on the
     // next read/write and clean up there.
     signal(SIGPIPE, SIG_IGN);

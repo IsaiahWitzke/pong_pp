@@ -2,7 +2,7 @@
 # fragments next to the source they describe; this file just stitches
 # them together with shared phony targets.
 
-.PHONY: all clean serve client server fmt push deploy docker-auth
+.PHONY: all clean serve client server fmt push deploy docker-auth smoke
 
 all: client server
 
@@ -17,6 +17,22 @@ fmt:
 
 clean:
 	rm -f $(CLIENT_OUT) $(SERVER_OUT)
+
+# Smoke test: boot the server, fire a real WebSocket request via websocat
+# (expect a `ROOMS` reply) and a plain HTTP GET via curl (expect `426 Upgrade
+# Required`), then tear down. Requires websocat (`brew install websocat`).
+smoke: server
+	@echo "==> starting server on :9000 (logs -> /tmp/pong-server.log)"
+	@bin/server > /tmp/pong-server.log 2>&1 & \
+	  SERVER_PID=$$!; \
+	  trap "kill $$SERVER_PID 2>/dev/null; echo; echo '--- server log ---'; cat /tmp/pong-server.log" EXIT; \
+	  sleep 0.5; \
+	  echo; \
+	  echo "==> WS test (sending LIST, expect ROOMS reply):"; \
+	  { echo LIST; sleep 0.3; } | websocat ws://localhost:9000; \
+	  echo; \
+	  echo "==> HTTP test (GET /, expect 426 Upgrade Required):"; \
+	  curl -sSi http://localhost:9000/
 
 # ----- Deploy: build & push the server image, then roll a new Cloud Run revision -----
 # Override on the command line, e.g.: make deploy IMAGE_TAG=$(git rev-parse --short HEAD)

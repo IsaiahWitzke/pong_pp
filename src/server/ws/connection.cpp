@@ -80,6 +80,10 @@ Connection::HandshakePhase Connection::HandleHandshake() {
     case HandshakeResult::Bad:
         std::printf("server: client %d malformed handshake\n", fd_);
         return HandshakePhase::Bad;
+    case HandshakeResult::NotUpgrade:
+        Write(response);
+        std::printf("server: client %d non-WS HTTP request, sent 426\n", fd_);
+        return HandshakePhase::Bad; // close after sending the 426
     case HandshakeResult::Done:
         Write(response);
         std::printf("server: client %d websocket handshake complete\n", fd_);
