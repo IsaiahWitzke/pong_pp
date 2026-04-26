@@ -84,7 +84,7 @@ These appear on `instance.exports` after `WebAssembly.instantiateStreaming`.
 
 - Add paddles + keyboard input (`keydown`/`keyup` in `loader.js`,
   exported `set_paddle(player, y)` in C++)
-- Add a WebSocket import so the wasm module can send/receive game-state
-  bytes from a server
-- Build a separate native server binary that runs the authoritative game
-  loop and broadcasts state to both connected clients
+- Add WebRTC data-channel imports so the wasm module can send/receive
+  game-state bytes peer-to-peer
+- Build a tiny native signaling server to broker the WebRTC handshake
+  between the two clients
