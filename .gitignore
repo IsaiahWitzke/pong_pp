@@ -6,3 +6,11 @@ bin/
 .cache
 .bear
 compile_commands.json
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+*.auto.tfvars
