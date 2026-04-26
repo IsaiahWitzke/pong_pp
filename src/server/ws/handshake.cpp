@@ -1,7 +1,7 @@
 #include "ws/handshake.h"
 
-#include "base64.h"
-#include "sha1.h"
+#include "util/base64.h"
+#include "util/sha1.h"
 
 #include <string_view>
 
@@ -43,10 +43,10 @@ HandshakeResult ProcessHandshake(std::string& buf, std::string& out_response) {
     if (key.empty())
         return HandshakeResult::Bad;
 
-    // Sec-WebSocket-Accept = base64(sha1(key + magic GUID))
+    // Sec-WebSocket-Accept = base64(util::sha1(key + magic GUID))
     std::string concat = key;
     concat.append(kWebSocketGuid);
-    std::string accept = base64_encode(sha1(concat));
+    std::string accept = util::base64_encode(util::sha1(concat));
 
     out_response = "HTTP/1.1 101 Switching Protocols\r\n"
                    "Upgrade: websocket\r\n"
