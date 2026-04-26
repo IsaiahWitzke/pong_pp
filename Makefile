@@ -2,7 +2,7 @@
 # fragments next to the source they describe; this file just stitches
 # them together with shared phony targets.
 
-.PHONY: all clean serve client signal
+.PHONY: all clean serve client signal fmt
 
 all: client signal
 
@@ -11,6 +11,9 @@ include src/signal/build.mk
 
 serve: client
 	cd web && python3 -m http.server 8080
+
+fmt:
+	@find src -type f \( -name '*.cpp' -o -name '*.h' \) | xargs clang-format -i
 
 clean:
 	rm -f $(CLIENT_OUT) $(SIGNAL_OUT)
