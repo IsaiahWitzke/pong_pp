@@ -77,18 +77,24 @@ int main() {
         std::printf("server: client %d connected from %s:%u\n", cfd, ip,
                     ntohs(peer.sin_port));
 
-        // Per-client handler. ws::Connection handles the WS protocol;
-        // application messages go up to the hub. The connection cleans
-        // up its own reactor registration via the on_destruct callback,
-        // so the lambda below only deals with hub-level lifecycle.
-        auto conn = std::make_shared<ws::Connection>(
+        // Per-client handler. Player owns the underlying ws::Connection
+        // (and wires up its own on_message handler internally). Hub is
+        // just a registry: Register adds the Player; Player::Cleanup
+        // self-unregisters on disconnect.
+        auto player = std::make_shared<signaling::Player>(
             cfd,
             [&reactor, fd = cfd] { reactor.Remove(fd); },
-            [&hub, fd = cfd](std::string_view msg) { hub.OnMessage(fd, msg); });
-        hub.OnConnect(std::move(conn));
+            hub);
+        hub.Register(player);
 
         reactor.OnReadable(
-            cfd, [&hub, fd = cfd](int /* revents */) { hub.OnReadable(fd); });
+            cfd, [weak = std::weak_ptr(player)](int /* revents */) {
+                if (auto p = weak.lock()) {
+                    if (p->Read() == ws::Connection::ReadResult::Err) {
+                        p->Cleanup();
+                    }
+                }
+            });
     });
 
     reactor.Run();

@@ -19,7 +19,10 @@ public:
     };
 
     // Called once per complete Text/Binary message received in Open state.
-    using OnMessageFn = std::function<void(std::string_view payload)>;
+    // The connection passes itself so the handler can identify the sender
+    // without keeping a separate fd-keyed lookup table on the side.
+    using OnMessageFn =
+        std::function<void(Connection& self, std::string_view payload)>;
 
     // Called exactly once from the destructor, before the fd is closed.
     // Typically used to deregister this connection from an event loop.

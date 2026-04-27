@@ -118,7 +118,7 @@ Connection::FramesPhase Connection::HandleFrames() {
         case Op::Text:
         case Op::Binary:
             if (on_message_) {
-                on_message_(f.payload);
+                on_message_(*this, f.payload);
             } else {
                 std::printf(
                     "server: client %d frame discarded (no handler): %.*s\n",
