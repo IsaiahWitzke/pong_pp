@@ -136,9 +136,10 @@ const imports = {
         },
         console_log_int: (v: number) => console.log("wasm:", v),
 
-        // Current paddle direction. -1 = up, 0 = neutral, +1 = down.
-        // Polled by WASM each tick from move_local_paddle().
-        paddle_input: () => paddleDir,
+        // Current paddle direction per axis (-1 / 0 / +1). Polled by WASM
+        // each tick from move_local_paddle().
+        paddle_input_x: () => paddleDirX,
+        paddle_input_y: () => paddleDirY,
 
         // Send bytes from WASM linear memory to the peer over the data channel.
         peer_send: (ptr: number, len: number) => {
@@ -149,30 +150,34 @@ const imports = {
 
 // ── Keyboard input ───────────────────────────────────────────────────────
 //
-// Track up/down keys at module scope so the `paddle_input` import can read
-// them synchronously each tick. We accept either WASD or the arrow keys;
-// arrow keys are preventDefault-ed so the page doesn't scroll while playing.
-let paddleDir: -1 | 0 | 1 = 0;
-const pressed = { up: false, down: false };
+// Track held keys at module scope so the `paddle_input_*` imports can read
+// them synchronously each tick. WASD or arrow keys both work; arrows are
+// preventDefault-ed so the page doesn't scroll while playing.
+let paddleDirX: -1 | 0 | 1 = 0;
+let paddleDirY: -1 | 0 | 1 = 0;
+const pressed = { up: false, down: false, left: false, right: false };
 
-function isUpKey(e: KeyboardEvent): boolean {
-    return e.key === "ArrowUp" || e.key === "w" || e.key === "W";
-}
-function isDownKey(e: KeyboardEvent): boolean {
-    return e.key === "ArrowDown" || e.key === "s" || e.key === "S";
-}
+function isUpKey(e: KeyboardEvent):    boolean { return e.key === "ArrowUp"    || e.key === "w" || e.key === "W"; }
+function isDownKey(e: KeyboardEvent):  boolean { return e.key === "ArrowDown"  || e.key === "s" || e.key === "S"; }
+function isLeftKey(e: KeyboardEvent):  boolean { return e.key === "ArrowLeft"  || e.key === "a" || e.key === "A"; }
+function isRightKey(e: KeyboardEvent): boolean { return e.key === "ArrowRight" || e.key === "d" || e.key === "D"; }
+
 function recomputeDir(): void {
-    paddleDir = pressed.up && !pressed.down ? -1
-              : pressed.down && !pressed.up ? 1
-              : 0;
+    paddleDirY = pressed.up   && !pressed.down  ? -1 : pressed.down  && !pressed.up   ? 1 : 0;
+    paddleDirX = pressed.left && !pressed.right ? -1 : pressed.right && !pressed.left ? 1 : 0;
 }
+
 window.addEventListener("keydown", (e) => {
-    if (isUpKey(e))        { pressed.up   = true; e.preventDefault(); recomputeDir(); }
-    else if (isDownKey(e)) { pressed.down = true; e.preventDefault(); recomputeDir(); }
+    if      (isUpKey(e))    { pressed.up    = true; e.preventDefault(); recomputeDir(); }
+    else if (isDownKey(e))  { pressed.down  = true; e.preventDefault(); recomputeDir(); }
+    else if (isLeftKey(e))  { pressed.left  = true; e.preventDefault(); recomputeDir(); }
+    else if (isRightKey(e)) { pressed.right = true; e.preventDefault(); recomputeDir(); }
 });
 window.addEventListener("keyup", (e) => {
-    if (isUpKey(e))        { pressed.up   = false; recomputeDir(); }
-    else if (isDownKey(e)) { pressed.down = false; recomputeDir(); }
+    if      (isUpKey(e))    { pressed.up    = false; recomputeDir(); }
+    else if (isDownKey(e))  { pressed.down  = false; recomputeDir(); }
+    else if (isLeftKey(e))  { pressed.left  = false; recomputeDir(); }
+    else if (isRightKey(e)) { pressed.right = false; recomputeDir(); }
 });
 
 // ── Bootstrap ────────────────────────────────────────────────────────────
