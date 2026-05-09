@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+    "rootDir": "./src",
+    "outDir": ".",
+    "noEmitOnError": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  // tsc auto-excludes outDir (".") from `include` discovery, which would
+  // hide everything under web/. List files explicitly to bypass that.
+  "files": [
+    "src/types.ts",
+    "src/signaling.ts",
+    "src/rtc.ts",
+    "src/loader.ts"
+  ]
+}

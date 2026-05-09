@@ -59,7 +59,8 @@ void process_block(const uint8_t* block, uint32_t h[5]) {
 } // namespace
 
 std::string sha1(std::string_view data) {
-    uint32_t h[5] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0};
+    uint32_t h[5] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476,
+                     0xC3D2E1F0};
 
     // Process every complete 64-byte block of the input directly.
     size_t pos = 0;
@@ -92,7 +93,7 @@ std::string sha1(std::string_view data) {
     // Output 20 raw bytes, big-endian per word.
     std::string out(20, '\0');
     for (int i = 0; i < 5; ++i) {
-        out[i * 4]     = char(uint8_t(h[i] >> 24));
+        out[i * 4] = char(uint8_t(h[i] >> 24));
         out[i * 4 + 1] = char(uint8_t(h[i] >> 16));
         out[i * 4 + 2] = char(uint8_t(h[i] >> 8));
         out[i * 4 + 3] = char(uint8_t(h[i]));

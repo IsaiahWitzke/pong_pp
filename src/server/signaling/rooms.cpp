@@ -19,9 +19,11 @@ std::shared_ptr<Room> Rooms::NewRoom(std::shared_ptr<Player> host) {
 
 std::shared_ptr<Room> Rooms::Join(Code code, std::shared_ptr<Player> guest) {
     auto it = rooms_.find(code);
-    if (it == rooms_.end()) return nullptr;
+    if (it == rooms_.end())
+        return nullptr;
     auto& room = it->second;
-    if (!room->guest.expired()) return nullptr;
+    if (!room->guest.expired())
+        return nullptr;
     guest->EnterRoomAsGuest(room);
     // The joinable set just shrank (this room is no longer joinable).
     Notify();
@@ -29,7 +31,8 @@ std::shared_ptr<Room> Rooms::Join(Code code, std::shared_ptr<Player> guest) {
 }
 
 void Rooms::Delete(Code code) {
-    if (rooms_.erase(code) == 0) return;
+    if (rooms_.erase(code) == 0)
+        return;
     Notify();
 }
 
@@ -37,7 +40,8 @@ std::vector<Rooms::Code> Rooms::JoinableCodes() const {
     std::vector<Code> out;
     out.reserve(rooms_.size());
     for (const auto& [code, room] : rooms_) {
-        if (room->guest.expired()) out.push_back(code);
+        if (room->guest.expired())
+            out.push_back(code);
     }
     return out;
 }

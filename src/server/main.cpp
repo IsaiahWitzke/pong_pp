@@ -82,9 +82,7 @@ int main() {
         // just a registry: Register adds the Player; Player::Cleanup
         // self-unregisters on disconnect.
         auto player = std::make_shared<signaling::Player>(
-            cfd,
-            [&reactor, fd = cfd] { reactor.Remove(fd); },
-            hub);
+            cfd, [&reactor, fd = cfd] { reactor.Remove(fd); }, hub);
         hub.Register(player);
 
         reactor.OnReadable(

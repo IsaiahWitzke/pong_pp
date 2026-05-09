@@ -13,17 +13,17 @@ namespace {
 
 namespace verb {
 // Client -> server.
-inline constexpr std::string_view kList     = "LIST";
-inline constexpr std::string_view kCreate   = "CREATE";
-inline constexpr std::string_view kJoin     = "JOIN";
+inline constexpr std::string_view kList = "LIST";
+inline constexpr std::string_view kCreate = "CREATE";
+inline constexpr std::string_view kJoin = "JOIN";
 // Both directions.
-inline constexpr std::string_view kRelay    = "RELAY";
+inline constexpr std::string_view kRelay = "RELAY";
 // Server -> client.
-inline constexpr std::string_view kRooms    = "ROOMS";
-inline constexpr std::string_view kCreated  = "CREATED";
-inline constexpr std::string_view kReady    = "READY";
+inline constexpr std::string_view kRooms = "ROOMS";
+inline constexpr std::string_view kCreated = "CREATED";
+inline constexpr std::string_view kReady = "READY";
 inline constexpr std::string_view kPeerLeft = "PEER_LEFT";
-inline constexpr std::string_view kError    = "ERROR";
+inline constexpr std::string_view kError = "ERROR";
 } // namespace verb
 
 // Parse a room code from a text body. Returns 0 on failure; codes start
@@ -31,15 +31,18 @@ inline constexpr std::string_view kError    = "ERROR";
 RoomCode ParseCode(std::string_view s) {
     RoomCode v = 0;
     auto r = std::from_chars(s.data(), s.data() + s.size(), v);
-    if (r.ec != std::errc{} || r.ptr != s.data() + s.size()) return 0;
+    if (r.ec != std::errc{} || r.ptr != s.data() + s.size())
+        return 0;
     return v;
 }
 
 // The other occupant of `room`, or nullptr if `self` is alone (or its
 // peer's weak_ptr has expired). Pointer comparison is on Player identity.
 std::shared_ptr<Player> OtherPlayer(const Room& room, const Player& self) {
-    if (auto h = room.host.lock(); h && h.get() != &self) return h;
-    if (auto g = room.guest.lock(); g && g.get() != &self) return g;
+    if (auto h = room.host.lock(); h && h.get() != &self)
+        return h;
+    if (auto g = room.guest.lock(); g && g.get() != &self)
+        return g;
     return nullptr;
 }
 
@@ -98,14 +101,19 @@ void Player::OnMessage(std::string_view msg) {
 
     auto sp = msg.find(' ');
     auto v = msg.substr(0, sp);
-    auto body =
-        (sp == std::string_view::npos) ? std::string_view{} : msg.substr(sp + 1);
+    auto body = (sp == std::string_view::npos) ? std::string_view{}
+                                               : msg.substr(sp + 1);
 
-    if      (v == verb::kList)   Send(RoomsLine(hub_->Rooms()));
-    else if (v == verb::kCreate) HandleCreate();
-    else if (v == verb::kJoin)   HandleJoin(body);
-    else if (v == verb::kRelay)  HandleRelay(body);
-    else                         Send(std::string(verb::kError) + " unknown_verb");
+    if (v == verb::kList)
+        Send(RoomsLine(hub_->Rooms()));
+    else if (v == verb::kCreate)
+        HandleCreate();
+    else if (v == verb::kJoin)
+        HandleJoin(body);
+    else if (v == verb::kRelay)
+        HandleRelay(body);
+    else
+        Send(std::string(verb::kError) + " unknown_verb");
 }
 
 void Player::HandleCreate() {
@@ -115,7 +123,8 @@ void Player::HandleCreate() {
 
 void Player::HandleJoin(std::string_view code) {
     auto parsed = ParseCode(code);
-    auto room = parsed ? hub_->Rooms().Join(parsed, shared_from_this()) : nullptr;
+    auto room =
+        parsed ? hub_->Rooms().Join(parsed, shared_from_this()) : nullptr;
     if (!room) {
         Send(std::string(verb::kError) + " join_failed");
         return;

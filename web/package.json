@@ -1,0 +1,11 @@
+{
+  "name": "pong-pp-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

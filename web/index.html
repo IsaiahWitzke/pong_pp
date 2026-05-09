@@ -99,54 +99,19 @@
             border: 1px solid #444;
             image-rendering: pixelated;
         }
-        #chat {
+        #rtc-status {
             position: absolute;
-            bottom: 8px;
+            top: 8px;
             right: 8px;
-            width: 260px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            pointer-events: none;
-        }
-        #chat-log {
-            height: 120px;
-            overflow-y: auto;
-            background: rgba(0, 0, 0, 0.7);
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            color: #888;
+            background: rgba(0, 0, 0, 0.6);
             border: 1px solid #333;
-            padding: 4px 6px;
-            font-size: 0.75rem;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
+            padding: 2px 6px;
         }
-        #chat-log .msg-me   { color: #7bf; }
-        #chat-log .msg-peer { color: #fb7; }
-        #chat-input-row {
-            pointer-events: auto;
-            display: flex;
-        }
-        #chat-input {
-            flex: 1;
-            background: rgba(0, 0, 0, 0.85);
-            border: 1px solid #444;
-            border-right: none;
-            color: #ddd;
-            font-family: inherit;
-            font-size: 0.75rem;
-            padding: 4px 6px;
-        }
-        #chat-input:focus { outline: none; border-color: #666; }
-        #chat-send {
-            padding: 4px 8px;
-            background: #000;
-            border: 1px solid #444;
-            color: #aaa;
-            font-family: inherit;
-            font-size: 0.75rem;
-            cursor: pointer;
-        }
-        #chat-send:hover { color: #fff; }
+        #rtc-status.open { color: #7f7; border-color: #383; }
+        #rtc-status.closed { color: #f77; border-color: #833; }
 
         /* ── Error banner ────────────────────────── */
         #error-banner {
@@ -190,13 +155,7 @@
 
     <div id="screen-game" class="screen">
         <canvas id="canvas" width="800" height="600"></canvas>
-        <div id="chat">
-            <div id="chat-log"></div>
-            <div id="chat-input-row">
-                <input id="chat-input" maxlength="200" placeholder="type a message…" autocomplete="off">
-                <button id="chat-send" class="btn">send</button>
-            </div>
-        </div>
+        <div id="rtc-status">connecting…</div>
     </div>
 
     <script type="module" src="loader.js"></script>

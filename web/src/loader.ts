@@ -4,48 +4,58 @@
 //   - Peer DataChannel ↔ WASM (start_game / on_peer_message / stop_game)
 //   - Canvas drawing imports called from WASM tick()
 // All gameplay logic lives in WASM; this file is glue.
+
 import { Rtc } from "./rtc.js";
 import { Signaling } from "./signaling.js";
-import { Screen } from "./types.js";
+import { Screen, type WasmExports } from "./types.js";
+
 // ── Constants & DOM handles ───────────────────────────────────────────────
-const SIGNAL_URL = location.hostname === "localhost" || location.hostname === "127.0.0.1"
-    ? "ws://localhost:9000"
-    : "wss://pong-signal-3tez3w6v5q-ue.a.run.app";
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+
+const SIGNAL_URL =
+    location.hostname === "localhost" || location.hostname === "127.0.0.1"
+        ? "ws://localhost:9000"
+        : "wss://pong-signal-3tez3w6v5q-ue.a.run.app";
+
+const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+const ctx    = canvas.getContext("2d")!;
+
 // ── Screen state ─────────────────────────────────────────────────────────
-let currentScreen = Screen.Menu;
-function showScreen(next) {
+
+let currentScreen: Screen = Screen.Menu;
+
+function showScreen(next: Screen): void {
     currentScreen = next;
-    const ids = ["screen-menu", "screen-waiting", "screen-game"];
+    const ids = ["screen-menu", "screen-waiting", "screen-game"] as const;
     ids.forEach((id, i) => {
-        document.getElementById(id).classList.toggle("active", i === next);
+        document.getElementById(id)!.classList.toggle("active", i === next);
     });
 }
-function setRtcStatus(text, cls) {
+
+function setRtcStatus(text: string, cls: "open" | "closed" | null): void {
     const el = document.getElementById("rtc-status");
-    if (!el)
-        return;
+    if (!el) return;
     el.textContent = text;
     el.classList.remove("open", "closed");
-    if (cls)
-        el.classList.add(cls);
+    if (cls) el.classList.add(cls);
 }
-function showError(msg) {
-    const b = document.getElementById("error-banner");
+
+function showError(msg: string): void {
+    const b = document.getElementById("error-banner")!;
     b.textContent = msg;
     b.classList.add("visible");
     setTimeout(() => b.classList.remove("visible"), 4000);
 }
-function setButtonsDisabled(disabled) {
-    document.getElementById("btn-host").disabled = disabled;
-    document.getElementById("btn-join").disabled = disabled;
-    document.querySelectorAll(".join-room-btn").forEach((b) => {
+
+function setButtonsDisabled(disabled: boolean): void {
+    (document.getElementById("btn-host") as HTMLButtonElement).disabled = disabled;
+    (document.getElementById("btn-join") as HTMLButtonElement).disabled = disabled;
+    document.querySelectorAll<HTMLButtonElement>(".join-room-btn").forEach((b) => {
         b.disabled = disabled;
     });
 }
-function renderRoomList(codes) {
-    const el = document.getElementById("room-list");
+
+function renderRoomList(codes: readonly string[]): void {
+    const el = document.getElementById("room-list")!;
     el.innerHTML = "";
     if (codes.length === 0) {
         const span = document.createElement("span");
@@ -62,14 +72,18 @@ function renderRoomList(codes) {
         el.appendChild(btn);
     }
 }
+
 // ── WASM ↔ JS plumbing ───────────────────────────────────────────────────
-let wasm;
+
+let wasm: WasmExports;
+
 // Read len bytes from WASM linear memory at ptr, decode as UTF-8.
-function readMem(ptr, len) {
+function readMem(ptr: number, len: number): string {
     return new TextDecoder().decode(new Uint8Array(wasm.memory.buffer, ptr, len));
 }
+
 // Encode str as UTF-8 and write into msg_buf. Returns bytes written.
-function writeMsg(str) {
+function writeMsg(str: string): number {
     const enc = new TextEncoder().encode(str);
     const ptr = wasm.get_msg_buf();
     const cap = wasm.get_msg_buf_size();
@@ -77,6 +91,7 @@ function writeMsg(str) {
     new Uint8Array(wasm.memory.buffer, ptr, len).set(enc.subarray(0, len));
     return len;
 }
+
 // Imports satisfied by JS, called from WASM. Note: `wasm` is captured by
 // closure but not yet bound at module-evaluation time — these closures only
 // run after instantiate, by which point it's set.
@@ -84,65 +99,68 @@ const imports = {
     env: {
         // libc-ish builtins clang emits even with -nostdlib (struct copies,
         // array init, etc. lower to memcpy/memset/memmove).
-        memcpy: (dst, src, n) => {
+        memcpy:  (dst: number, src: number, n: number) => {
             new Uint8Array(wasm.memory.buffer).copyWithin(dst, src, src + n);
             return dst;
         },
-        memmove: (dst, src, n) => {
+        memmove: (dst: number, src: number, n: number) => {
             new Uint8Array(wasm.memory.buffer).copyWithin(dst, src, src + n);
             return dst;
         },
-        memset: (dst, val, n) => {
+        memset:  (dst: number, val: number, n: number) => {
             new Uint8Array(wasm.memory.buffer, dst, n).fill(val);
             return dst;
         },
-        memcmp: (a, b, n) => {
+        memcmp:  (a: number, b: number, n: number) => {
             const heap = new Uint8Array(wasm.memory.buffer);
             for (let i = 0; i < n; i++) {
-                const d = heap[a + i] - heap[b + i];
-                if (d !== 0)
-                    return d;
+                const d = heap[a + i]! - heap[b + i]!;
+                if (d !== 0) return d;
             }
             return 0;
         },
+
         // Canvas
         clear_canvas: () => {
             ctx.fillStyle = "#000";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         },
-        fill_rect: (x, y, w, h, r, g, b) => {
+        fill_rect: (x: number, y: number, w: number, h: number, r: number, g: number, b: number) => {
             ctx.fillStyle = `rgb(${r},${g},${b})`;
             ctx.fillRect(x, y, w, h);
         },
-        console_log_int: (v) => console.log("wasm:", v),
+        console_log_int: (v: number) => console.log("wasm:", v),
+
         // Send bytes from WASM linear memory to the peer over the data channel.
-        peer_send: (ptr, len) => {
+        peer_send: (ptr: number, len: number) => {
             rtc.send(readMem(ptr, len));
         },
     },
 };
+
 // ── Bootstrap ────────────────────────────────────────────────────────────
+
 const result = await WebAssembly.instantiateStreaming(fetch("pong.wasm"), imports);
-wasm = result.instance.exports;
+wasm = result.instance.exports as unknown as WasmExports;
 wasm.init();
+
 const signaling = new Signaling(SIGNAL_URL);
-const rtc = new Rtc(signaling);
+const rtc       = new Rtc(signaling);
+
 // Signaling lifecycle → UI.
-signaling.onOpen = () => { setButtonsDisabled(false); signaling.list(); };
-signaling.onClose = () => {
+signaling.onOpen     = () => { setButtonsDisabled(false); signaling.list(); };
+signaling.onClose    = () => {
     rtc.close();
-    if (currentScreen === Screen.Game)
-        wasm.stop_game();
+    if (currentScreen === Screen.Game) wasm.stop_game();
     showError("disconnected — reload to reconnect");
 };
-signaling.onWsError = () => showError("connection error — reload to reconnect");
-signaling.onRooms = (codes) => { if (currentScreen === Screen.Menu)
-    renderRoomList(codes); };
-signaling.onCreated = (code) => {
+signaling.onWsError  = () => showError("connection error — reload to reconnect");
+signaling.onRooms    = (codes) => { if (currentScreen === Screen.Menu) renderRoomList(codes); };
+signaling.onCreated  = (code)  => {
     showScreen(Screen.Waiting);
-    document.getElementById("waiting-code").textContent = code;
+    document.getElementById("waiting-code")!.textContent = code;
 };
-signaling.onReady = (role) => {
+signaling.onReady    = (role)  => {
     showScreen(Screen.Game);
     setRtcStatus("connecting…", null);
     rtc.init(role);
@@ -156,18 +174,16 @@ signaling.onPeerLeft = () => {
     showError("opponent left the game");
     signaling.list();
 };
-signaling.onError = (reason) => {
-    if (reason === "join_failed")
-        showError("room not found or already full");
-    else if (reason === "could_not_allocate_room")
-        showError("could not create room");
-    else
-        showError("server error");
+signaling.onError    = (reason) => {
+    if      (reason === "join_failed")             showError("room not found or already full");
+    else if (reason === "could_not_allocate_room") showError("could not create room");
+    else                                           showError("server error");
     setButtonsDisabled(false);
 };
+
 // DataChannel ↔ WASM.
-rtc.onOpen = () => setRtcStatus("p2p connected", "open");
-rtc.onClose = () => setRtcStatus("p2p closed", "closed");
+rtc.onOpen    = () => setRtcStatus("p2p connected", "open");
+rtc.onClose   = () => setRtcStatus("p2p closed", "closed");
 rtc.onMessage = (text) => {
     const len = writeMsg(text);
     wasm.on_peer_message(len);
@@ -177,47 +193,45 @@ rtc.onConnectionStateChange = (state) => {
         setRtcStatus(`p2p ${state}`, "closed");
     }
 };
+
 // ── DOM event wiring ─────────────────────────────────────────────────────
-document.getElementById("btn-host").addEventListener("click", () => {
+
+document.getElementById("btn-host")!.addEventListener("click", () => {
     setButtonsDisabled(true);
     signaling.create();
 });
-document.getElementById("btn-cancel").addEventListener("click", () => {
+
+document.getElementById("btn-cancel")!.addEventListener("click", () => {
     setButtonsDisabled(true);
     rtc.close();
-    if (currentScreen === Screen.Game)
-        wasm.stop_game();
+    if (currentScreen === Screen.Game) wasm.stop_game();
     signaling.close();
     showScreen(Screen.Menu);
     // The WS close handler will fire and surface the disconnect banner;
     // no need to do that here.
 });
-const joinInput = document.getElementById("join-input");
-function attemptJoin() {
+
+const joinInput = document.getElementById("join-input") as HTMLInputElement;
+function attemptJoin(): void {
     const code = joinInput.value;
-    if (!code) {
-        showError("enter a room code");
-        return;
-    }
-    if (!/^\d+$/.test(code)) {
-        showError("room code must be a number");
-        return;
-    }
+    if (!code) { showError("enter a room code"); return; }
+    if (!/^\d+$/.test(code)) { showError("room code must be a number"); return; }
     setButtonsDisabled(true);
     signaling.join(code);
 }
-document.getElementById("btn-join").addEventListener("click", attemptJoin);
-joinInput.addEventListener("keydown", (e) => { if (e.key === "Enter")
-    attemptJoin(); });
+document.getElementById("btn-join")!.addEventListener("click", attemptJoin);
+joinInput.addEventListener("keydown", (e) => { if (e.key === "Enter") attemptJoin(); });
 joinInput.addEventListener("input", () => {
     joinInput.value = joinInput.value.replace(/[^0-9]/g, "");
 });
+
 // ── rAF loop — always ticks; WASM returns early when not in game ─────────
-function frame() {
+function frame(): void {
     wasm.tick();
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
 // Kick everything off.
 showScreen(Screen.Menu);
 signaling.connect();

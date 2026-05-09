@@ -107,7 +107,8 @@ Connection::FramesPhase Connection::HandleFrames() {
 
         // Fragmentation isn't supported; browsers don't fragment small
         // messages.
-        // TODO: wrap frame parsing / message building with a stateful Assembler class
+        // TODO: wrap frame parsing / message building with a stateful Assembler
+        // class
         if (!f.fin || f.opcode == Op::Continuation) {
             std::printf(
                 "server: client %d sent fragmented frame (unsupported)\n", fd_);

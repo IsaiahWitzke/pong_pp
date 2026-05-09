@@ -2,21 +2,36 @@
 # fragments next to the source they describe; this file just stitches
 # them together with shared phony targets.
 
-.PHONY: all clean serve client server fmt push deploy docker-auth smoke
+.PHONY: all clean serve client server web fmt push deploy docker-auth smoke
 
-all: client server
+all: client server web
 
 include src/client/build.mk
 include src/server/build.mk
 
-serve: client
+# Compile the TypeScript sources under web/src/ into ES modules emitted
+# alongside web/index.html. tsc only — no bundler — so the dev server
+# stays a plain `python3 -m http.server`.
+WEB_SRC := $(wildcard web/src/*.ts)
+WEB_OUT := web/loader.js web/signaling.js web/rtc.js web/types.js
+
+web/node_modules: web/package.json
+	cd web && npm install --silent
+	@touch $@
+
+$(WEB_OUT): $(WEB_SRC) web/tsconfig.json web/node_modules
+	cd web && npx tsc
+
+web: $(WEB_OUT)
+
+serve: client web
 	cd web && python3 -m http.server 8080
 
 fmt:
 	@find src -type f \( -name '*.cpp' -o -name '*.h' \) | xargs clang-format -i
 
 clean:
-	rm -f $(CLIENT_OUT) $(SERVER_OUT)
+	rm -f $(CLIENT_OUT) $(SERVER_OUT) $(WEB_OUT)
 
 # Smoke test: boot the server, fire a real WebSocket request via websocat
 # (expect a `ROOMS` reply) and a plain HTTP GET via curl (expect `426 Upgrade

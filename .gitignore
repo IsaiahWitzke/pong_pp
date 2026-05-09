@@ -1,4 +1,12 @@
 web/pong.wasm
+
+# Compiled TypeScript output (sources live in web/src/, tsc emits next to index.html)
+web/loader.js
+web/signaling.js
+web/rtc.js
+web/types.js
+web/node_modules/
+
 bin/
 *.o
 *.dSYM/
