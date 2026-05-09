@@ -17,7 +17,7 @@ const SIGNAL_URL =
         : "wss://pong-signal-3tez3w6v5q-ue.a.run.app";
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-const ctx    = canvas.getContext("2d")!;
+const ctx = canvas.getContext("2d")!;
 
 // ── Screen state ─────────────────────────────────────────────────────────
 
@@ -99,7 +99,7 @@ const imports = {
     env: {
         // libc-ish builtins clang emits even with -nostdlib (struct copies,
         // array init, etc. lower to memcpy/memset/memmove).
-        memcpy:  (dst: number, src: number, n: number) => {
+        memcpy: (dst: number, src: number, n: number) => {
             new Uint8Array(wasm.memory.buffer).copyWithin(dst, src, src + n);
             return dst;
         },
@@ -107,11 +107,11 @@ const imports = {
             new Uint8Array(wasm.memory.buffer).copyWithin(dst, src, src + n);
             return dst;
         },
-        memset:  (dst: number, val: number, n: number) => {
+        memset: (dst: number, val: number, n: number) => {
             new Uint8Array(wasm.memory.buffer, dst, n).fill(val);
             return dst;
         },
-        memcmp:  (a: number, b: number, n: number) => {
+        memcmp: (a: number, b: number, n: number) => {
             const heap = new Uint8Array(wasm.memory.buffer);
             for (let i = 0; i < n; i++) {
                 const d = heap[a + i]! - heap[b + i]!;
@@ -129,7 +129,16 @@ const imports = {
             ctx.fillStyle = `rgb(${r},${g},${b})`;
             ctx.fillRect(x, y, w, h);
         },
+        fill_text: (x: number, y: number, ptr: number, len: number, size: number, r: number, g: number, b: number) => {
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.font = `${size}px ui-monospace, monospace`;
+            ctx.fillText(readMem(ptr, len), x, y);
+        },
         console_log_int: (v: number) => console.log("wasm:", v),
+
+        // Current paddle direction. -1 = up, 0 = neutral, +1 = down.
+        // Polled by WASM each tick from move_local_paddle().
+        paddle_input: () => paddleDir,
 
         // Send bytes from WASM linear memory to the peer over the data channel.
         peer_send: (ptr: number, len: number) => {
@@ -138,6 +147,34 @@ const imports = {
     },
 };
 
+// ── Keyboard input ───────────────────────────────────────────────────────
+//
+// Track up/down keys at module scope so the `paddle_input` import can read
+// them synchronously each tick. We accept either WASD or the arrow keys;
+// arrow keys are preventDefault-ed so the page doesn't scroll while playing.
+let paddleDir: -1 | 0 | 1 = 0;
+const pressed = { up: false, down: false };
+
+function isUpKey(e: KeyboardEvent): boolean {
+    return e.key === "ArrowUp" || e.key === "w" || e.key === "W";
+}
+function isDownKey(e: KeyboardEvent): boolean {
+    return e.key === "ArrowDown" || e.key === "s" || e.key === "S";
+}
+function recomputeDir(): void {
+    paddleDir = pressed.up && !pressed.down ? -1
+              : pressed.down && !pressed.up ? 1
+              : 0;
+}
+window.addEventListener("keydown", (e) => {
+    if (isUpKey(e))        { pressed.up   = true; e.preventDefault(); recomputeDir(); }
+    else if (isDownKey(e)) { pressed.down = true; e.preventDefault(); recomputeDir(); }
+});
+window.addEventListener("keyup", (e) => {
+    if (isUpKey(e))        { pressed.up   = false; recomputeDir(); }
+    else if (isDownKey(e)) { pressed.down = false; recomputeDir(); }
+});
+
 // ── Bootstrap ────────────────────────────────────────────────────────────
 
 const result = await WebAssembly.instantiateStreaming(fetch("pong.wasm"), imports);
@@ -145,22 +182,27 @@ wasm = result.instance.exports as unknown as WasmExports;
 wasm.init();
 
 const signaling = new Signaling(SIGNAL_URL);
-const rtc       = new Rtc(signaling);
+const rtc = new Rtc(signaling);
 
 // Signaling lifecycle → UI.
-signaling.onOpen     = () => { setButtonsDisabled(false); signaling.list(); };
-signaling.onClose    = () => {
+signaling.onOpen = () => {
+    setButtonsDisabled(false);
+    signaling.list();
+};
+signaling.onClose = () => {
     rtc.close();
     if (currentScreen === Screen.Game) wasm.stop_game();
     showError("disconnected — reload to reconnect");
 };
-signaling.onWsError  = () => showError("connection error — reload to reconnect");
-signaling.onRooms    = (codes) => { if (currentScreen === Screen.Menu) renderRoomList(codes); };
-signaling.onCreated  = (code)  => {
+signaling.onWsError = () => showError("connection error — reload to reconnect");
+signaling.onRooms = (codes) => {
+    if (currentScreen === Screen.Menu) renderRoomList(codes);
+};
+signaling.onCreated = (code) => {
     showScreen(Screen.Waiting);
     document.getElementById("waiting-code")!.textContent = code;
 };
-signaling.onReady    = (role)  => {
+signaling.onReady = (role) => {
     showScreen(Screen.Game);
     setRtcStatus("connecting…", null);
     rtc.init(role);
@@ -174,16 +216,16 @@ signaling.onPeerLeft = () => {
     showError("opponent left the game");
     signaling.list();
 };
-signaling.onError    = (reason) => {
-    if      (reason === "join_failed")             showError("room not found or already full");
+signaling.onError = (reason) => {
+    if (reason === "join_failed") showError("room not found or already full");
     else if (reason === "could_not_allocate_room") showError("could not create room");
-    else                                           showError("server error");
+    else showError("server error");
     setButtonsDisabled(false);
 };
 
 // DataChannel ↔ WASM.
-rtc.onOpen    = () => setRtcStatus("p2p connected", "open");
-rtc.onClose   = () => setRtcStatus("p2p closed", "closed");
+rtc.onOpen = () => setRtcStatus("p2p connected", "open");
+rtc.onClose = () => setRtcStatus("p2p closed", "closed");
 rtc.onMessage = (text) => {
     const len = writeMsg(text);
     wasm.on_peer_message(len);
@@ -214,13 +256,21 @@ document.getElementById("btn-cancel")!.addEventListener("click", () => {
 const joinInput = document.getElementById("join-input") as HTMLInputElement;
 function attemptJoin(): void {
     const code = joinInput.value;
-    if (!code) { showError("enter a room code"); return; }
-    if (!/^\d+$/.test(code)) { showError("room code must be a number"); return; }
+    if (!code) {
+        showError("enter a room code");
+        return;
+    }
+    if (!/^\d+$/.test(code)) {
+        showError("room code must be a number");
+        return;
+    }
     setButtonsDisabled(true);
     signaling.join(code);
 }
 document.getElementById("btn-join")!.addEventListener("click", attemptJoin);
-joinInput.addEventListener("keydown", (e) => { if (e.key === "Enter") attemptJoin(); });
+joinInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") attemptJoin();
+});
 joinInput.addEventListener("input", () => {
     joinInput.value = joinInput.value.replace(/[^0-9]/g, "");
 });
